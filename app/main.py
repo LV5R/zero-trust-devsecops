@@ -5,6 +5,7 @@ Exposes two endpoints:
   GET /add     → {"result": a + b}  (requires integer query params a and b)
 """
 
+import os
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
@@ -45,4 +46,4 @@ def add():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")

@@ -1,0 +1,84 @@
+name: CI
+
+# Trigger on every pull request targeting the main branch.
+on:
+  pull_request:
+    branches:
+      - main
+
+# Minimal read-only token — no write access to repo contents.
+permissions:
+  contents: read
+
+jobs:
+  # ── 1. Unit tests ────────────────────────────────────────────────────────────
+  # Install dependencies inside a clean Python 3.12 environment and run pytest.
+  test:
+    name: Unit Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pytest
+        run: pytest --tb=short -v
+
+  # ── 2. SAST — Static Application Security Testing ────────────────────────────
+  # Semgrep scans source code for security anti-patterns; exits non-zero on findings.
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep SAST scan
+        run: semgrep scan --config auto --error
+
+  # ── 3. Secret scanning — detect leaked credentials in full git history ────────
+  # fetch-depth: 0 ensures TruffleHog can walk every commit, not just the HEAD.
+  secrets:
+    name: Secret Scan (TruffleHog)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog (verified secrets only)
+        uses: trufflesecurity/trufflehog@4dd8831c5f12599465d4d45c3c447b4018a34c85 # v3.97.9
+        with:
+          # Scan the git history of this PR's base..head range.
+          extra_args: --only-verified
+
+  # ── 4. Container image scan — fail on unpatched HIGH/CRITICAL CVEs ───────────
+  # Build the image locally, then Trivy scans the layers; exit-code 1 blocks merge.
+  image-scan:
+    name: Image Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build Docker image
+        run: docker build -t zero-trust-devsecops:ci .
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: "zero-trust-devsecops:ci"
+          severity: "HIGH,CRITICAL"
+          exit-code: "1"
+          ignore-unfixed: true
