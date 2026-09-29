@@ -1,0 +1,28 @@
+# Version-control history — never needed inside the image
+.git
+.gitignore
+
+# Local virtual environment — image installs its own deps
+.venv
+
+# Python bytecode caches
+__pycache__
+*.pyc
+*.pyo
+
+# Secrets — must never be baked into an image
+.env
+.env.*
+
+# Test code — not needed at runtime
+tests/
+
+# Docker files themselves
+Dockerfile
+.dockerignore
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
